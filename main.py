@@ -24,8 +24,8 @@ def main():
 
     year = int(sys.argv[1][0:4])
     month = int(sys.argv[1][5:])
-    date_start = datetime.datetime(year, month, 1)
-    date_end = datetime.datetime(year, month, calendar.monthrange(year, month)[1])
+    date_start = datetime.date(year, month, 1)
+    date_end = datetime.date(year, month, calendar.monthrange(year, month)[1])
 
     f = open("template.html", "r")
     tpl = f.read()
