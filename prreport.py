@@ -134,11 +134,11 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
     out = ''
     out += f'<p>The <a href="{url}">{repo}</a> team merged the following PRs this month:\n'
     for pr in prs['items']:
-        if 'dependabot' in pr["user"]["login"]:
+        if 'dependabot' in pr["user"]["login"] or 'renovate' in pr["user"]["login"]:
             continue
         out += '<p>\n'
         out += f'{pr["title"]} (<a href="{pr["html_url"]}">#{pr["number"]}</a>) <b>±{pr["diff"]}</b> by <b>{pr["user"]["login"]}</b> @ {pr["pull_request"]["merged_at"][0:10]}'
-        if 'body_html' in pr:
+        if 'body_html' in pr and not pr['body_html'] is None:
             out += f'.\n<div class="pr_desc">{pr["body_html"]}</div>'
         out += '</p>\n'
 
@@ -149,7 +149,7 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
             published = datetime.datetime.fromisoformat(r["published_at"][:-1]).date()
             out += f'<li>'
             out += f'<a href="{r["html_url"]}">{r["tag_name"]}</a> released on {published.strftime("%b %d")}.'
-            if 'body_html' in r:
+            if 'body_html' in r and not r['body_html'] is None:
                 out += f'<br/>{r["body_html"]}'
             out += '</li>\n'
         out += f'</ul>\n'
