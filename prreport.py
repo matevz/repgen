@@ -26,15 +26,6 @@ def get_prs_browsable_url(url: str, date_start: datetime.date, date_end: datetim
     return url+f'/pulls?q=merged:{date_start.strftime("%Y-%m-%d")}..{date_end.strftime("%Y-%m-%d")}'
 
 
-def format_body(body: str) -> str:
-    """Formats the PR body in Markdown."""
-    body = body.replace("\r\n", "<br/>\n")
-    body = body.replace("<h1", "<h3\n")
-    body = body.replace("</h1>", "</h3>\n")
-    body = body.replace("<h2", "<h4\n")
-    body = body.replace("</h2>", "</h4>\n")
-
-    return body
 def compute_relevant_diff(diff: str) -> int:
     block = re.findall(r'\n---\n(.*)\n---\s.+', diff, re.DOTALL)
     sum = 0
