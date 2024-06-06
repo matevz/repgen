@@ -150,7 +150,7 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
             out += f'<li>'
             out += f'<a href="{r["html_url"]}">{r["tag_name"]}</a> released on {published.strftime("%b %d")}.'
             if 'body_html' in r and not r['body_html'] is None:
-                out += f'<br/>{r["body_html"]}'
+                out += f'<div class="pr_desc">{r["body_html"]}</div>'
             out += '</li>\n'
         out += f'</ul>\n'
 
