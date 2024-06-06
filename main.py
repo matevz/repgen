@@ -6,6 +6,7 @@ import datetime
 import re
 
 from prreport import pr_report
+from txreport import tx_report
 
 date_start: datetime.date
 date_end: datetime.date
@@ -36,6 +37,10 @@ def main():
     pr_reports = re.findall(r'{{PR_REPORT (.*)}}', tpl)
     for prr in pr_reports:
         tpl = tpl.replace(r'{{PR_REPORT '+prr+'}}', pr_report(prr, date_start, date_end))
+
+    tx_reports = re.findall(r'{{TX_REPORT (.*)}}', tpl)
+    for txr in tx_reports:
+        tpl = tpl.replace(r'{{TX_REPORT '+txr+'}}', tx_report(txr, date_start, date_end))
 
     print(tpl)
 

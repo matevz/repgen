@@ -16,10 +16,13 @@ copy&pasting it to Google docs or other text processing app.
 
 Features:
 - PR report:
-  - fetches PRs and orders them based on the importance
-  - the importance is computed based on the diff lines of code not considering
+  - Fetches PRs and orders them based on the importance.
+  - The importance is computed based on the diff lines of code not considering
     go.sum, .svg, yarn.lock, Cargo.lock and similar files.
-  - fetches both releases and tags published that month
+  - Fetches both releases and tags published that month.
+- Network report:
+  - Fetches daily transaction volume from CSV file.
+  - Computes daily average and max/min and compares those with the previous month.
 
 If you encounter `403` rate limiting error on github, create Personal Access
 token and export it as the `API_KEY` env variable before executing the report
