@@ -9,7 +9,7 @@ import time
 
 PER_PAGE=100 # github limit
 HTTP_ERROR_RETRY_SLEEP=10 # in seconds
-IGNORE_DIFF_FILES=['go.sum',' Cargo.lock', 'package.lock', 'yarn.lock', 'pnpm-lock.yaml', '.svg', '.tsx.snap']
+IGNORE_DIFF_FILES=['go.sum',' Cargo.lock', 'package.lock', 'yarn.lock', 'pnpm-lock.yaml', '.svg', '.tsx.snap', '.body', '.headers']
 
 
 def get_owner_repo(url: str) -> (str, str):
@@ -63,13 +63,19 @@ def fetch(url: str) -> str:
 
     return res
 
+def fetch_diffs(items):
+    """Populates PRs with their raw diffs."""
+    for i,pr in enumerate(items):
+        res = fetch(pr['pull_request']['patch_url'])
+        pr['raw_diff'] = res.read().decode(res.headers.get_content_charset())
+
+
 def reorder_prs_by_diff(items):
+    """Reorders the given PRs by their relevant diff. Requires populated raw_diff."""
     diff_amt = []
 
     for i,pr in enumerate(items):
-        res = fetch(pr['pull_request']['patch_url'])
-        diff = res.read().decode(res.headers.get_content_charset())
-        diff_len = compute_relevant_diff(diff)
+        diff_len = compute_relevant_diff(pr['raw_diff'])
         diff_amt.append((diff_len, i))
 
     new_items = []
@@ -80,6 +86,23 @@ def reorder_prs_by_diff(items):
 
     return new_items
 
+
+def fetch_changelogs(items):
+    """Fetches the changelogs from PR diffs. Requires populated raw_diff."""
+    for pr in items:
+        query = r'\n\+\+\+\ b\/\.changelog\/'+str(pr['number'])+r'\.[a-z]+\.md\n@@[\+\-\,\ 0-9]+@@\n(.*)'
+        blocks = re.findall(query, pr['raw_diff'], re.DOTALL)
+        if len(blocks)!=1 or blocks[0] == '' or blocks[0] == '\n':
+            continue
+
+        pr['changelog'] = ''
+        blocks[0] = blocks[0].replace('\n+\n', '<br/>\n')
+        for b in blocks[0].split('\n'):
+            # + should be the first character in the diff
+            if len(b) > 0 and b[0] == '+':
+                pr['changelog'] += b[1:]+' '
+            else:
+                break
 
 def get_releases_tags(url: str, date_start: datetime.date, date_end: datetime.date) -> list:
     """Obtains any releases made this month and tags, if not covered by releases."""
@@ -125,6 +148,8 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
     if len(prs['items']) == 0:  # Skip the section, if no PRs merged this month.
         return ''
 
+    fetch_diffs(prs['items'])
+    fetch_changelogs(prs['items'])
     prs['items'] = reorder_prs_by_diff(prs['items'])
 
     team = repo.split('-')
@@ -136,11 +161,16 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
     for pr in prs['items']:
         if 'dependabot' in pr["user"]["login"] or 'renovate' in pr["user"]["login"]:
             continue
-        out += '<p>\n'
-        out += f'{pr["title"]} (<a href="{pr["html_url"]}">#{pr["number"]}</a>) <b>±{pr["diff"]}</b> by <b>{pr["user"]["login"]}</b> @ {pr["pull_request"]["merged_at"][0:10]}'
+        out += '<div>\n'
+        out += f'{pr["title"]} (<a href="{pr["html_url"]}">#{pr["number"]}</a>) <b><a href="{pr["html_url"]}/files">±{pr["diff"]}</a></b> by <b>{pr["user"]["login"]}</b> @ {pr["pull_request"]["merged_at"][0:10]}.\n'
         if 'body_html' in pr and not pr['body_html'] is None:
-            out += f'.\n<div class="pr_desc">{pr["body_html"]}</div>'
-        out += '</p>\n'
+            out += f'<div class="pr_desc">{pr["body_html"]}</div>'
+        if 'changelog' in pr:
+            out += '<div class="pr_changelog">'
+            out += '<p class="pr_changelog_title">CHANGELOG:</p>\n'
+            out += f'<p>{pr["changelog"]}</p>'
+            out += '\n</div>'
+        out += '</div>\n'
 
     releases = get_releases_tags(url, date_start, date_end)
     if len(releases)>0:

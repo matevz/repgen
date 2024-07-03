@@ -53,6 +53,7 @@ def compute_average(txes: list, date_start: datetime.date, date_end: datetime.da
 
 def import_csv(url: str) -> list:
     """XXX: poorman's CSV parser. Use csv.DictReader() instead."""
+    print(f'Fetching {url}', file=sys.stderr)
     raw_csv = urllib.request.urlopen(url).read().decode('utf-8')
     lines = raw_csv.splitlines()
     if len(lines)<1:

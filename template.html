@@ -12,8 +12,12 @@
 	a, a:visited, a:hover, a:active {
 	  color: blue;
 	}
-	.pr_desc {
+	.pr_desc, .pr_changelog {
 		margin-left: 25px;
+	}
+
+	.pr_changelog_title {
+		font-style: italic;
 	}
 
 	.pr_desc h1, .pr_desc h2, .pr_desc h3 {
@@ -23,7 +27,7 @@
 		position: fixed;
 		right:0;
 		background:#ddd;
-		width:300px;
+		width:200px;
 		margin:20px;
 	}
 	.tx_stats tr:nth-child(even) {
@@ -38,11 +42,14 @@
 
 <body>
 	<div class="toc">
-		<p></p><a href="#wallet-and-cli-updates">Wallet and CLI Updates</a></p>
-		<p></p><a href="#network-updates">Network Updates</a></p>
-		<p></p><a href="#oasis-nexus-and-explorer">Oasis Nexus and Explorer</a></p>
-		<p></p><a href="#developer-platform-and-paratime-updates">Developer Platform and ParaTime Updates</a></p>
-		<p></p><a href="#core-platform-updates">Core Platform Updates</a></p>
+		<details open>
+			<summary>TOC</summary>
+			<p><a href="#wallet-and-cli-updates">Wallet and CLI Updates</a></p>
+			<p><a href="#network-updates">Network Updates</a></p>
+			<p><a href="#oasis-nexus-and-explorer">Oasis Nexus and Explorer</a></p>
+			<p><a href="#developer-platform-and-paratime-updates">Developer Platform and ParaTime Updates</a></p>
+			<p><a href="#core-platform-updates">Core Platform Updates</a></p>
+		</details>
 	</div>
 	<h1>Oasis {{MONTH}} {{YEAR}} Engineering update</h1>
 

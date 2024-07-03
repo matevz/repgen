@@ -3,11 +3,6 @@ import unittest
 from prreport import *
 
 class TestPRReport(unittest.TestCase):
-
-    def test_format_body(self):
-        self.assertEqual(format_body('hello world\r\nnew line'), 'hello world<br/>\nnew line')
-
-
     def test_compute_relevant_diff(self):
         diff1 = '''
         From f7a22ec09f3a418e4946109f4aad9d0c837e60a1 Mon Sep 17 00:00:00 2001
@@ -316,6 +311,347 @@ index 303b2d4d0a..19033456f8 100644
  ## See also'''
 
         self.assertEqual(compute_relevant_diff(diff2), 1792)
+
+    def test_fetch_changelogs(self):
+        item = {'number': 5728}
+        item['raw_diff'] = '''
+        From 40eae687a39cc16506aad072133cf8b06cd7f4a1 Mon Sep 17 00:00:00 2001
+From: Jernej Kos <jernej@kos.mx>
+Date: Wed, 26 Jun 2024 22:25:22 +0200
+Subject: [PATCH 1/2] runtime: Add SGXConstraints::enclaves method
+
+---
+ runtime/src/consensus/registry.rs | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/runtime/src/consensus/registry.rs b/runtime/src/consensus/registry.rs
+index de80d2a3dd9..a413efc9b99 100644
+--- a/runtime/src/consensus/registry.rs
++++ b/runtime/src/consensus/registry.rs
+@@ -701,13 +701,17 @@ pub enum SGXConstraints {
+ }
+ 
+ impl SGXConstraints {
+-    /// Checks whether the given enclave identity is whitelisted.
+-    pub fn contains_enclave(&self, eid: &sgx::EnclaveIdentity) -> bool {
+-        let enclaves = match self {
++    /// Identities of allowed enclaves.
++    pub fn enclaves(&self) -> &Vec<sgx::EnclaveIdentity> {
++        match self {
+             Self::V0 { ref enclaves, .. } => enclaves,
+             Self::V1 { ref enclaves, .. } => enclaves,
+-        };
+-        enclaves.contains(eid)
++        }
++    }
++
++    /// Checks whether the given enclave identity is whitelisted.
++    pub fn contains_enclave(&self, eid: &sgx::EnclaveIdentity) -> bool {
++        self.enclaves().contains(eid)
+     }
+ 
+     /// SGX quote policy.
+
+From 32385fdd48d44239ca7edb258152622269d0c4f8 Mon Sep 17 00:00:00 2001
+From: Jernej Kos <jernej@kos.mx>
+Date: Wed, 26 Jun 2024 22:27:35 +0200
+Subject: [PATCH 2/2] runtime: Add VerifiedAttestation with more metadata
+
+Since verified attestations generated from TEE capabilities can include
+additional metadata like the enclave's view of consensus layer height at
+time of attestation, this allows such data to be used by callers.
+---
+ .changelog/5728.internal.md        |  5 ++++
+ keymanager/src/churp/handler.rs    |  2 +-
+ keymanager/src/runtime/secrets.rs  |  2 +-
+ runtime/src/consensus/registry.rs  | 48 ++++++++++++++++++++++++------
+ runtime/src/enclave_rpc/session.rs | 14 ++++-----
+ 5 files changed, 53 insertions(+), 18 deletions(-)
+ create mode 100644 .changelog/5728.internal.md
+
+diff --git a/.changelog/5728.internal.md b/.changelog/5728.internal.md
+new file mode 100644
+index 00000000000..2095071b277
+--- /dev/null
++++ b/.changelog/5728.internal.md
+@@ -0,0 +1,5 @@
++runtime: Add VerifiedAttestation with more metadata
++
++Since verified attestations generated from TEE capabilities can include
++additional metadata like the enclave's view of consensus layer height at
++time of attestation, this allows such data to be used by callers.
+diff --git a/keymanager/src/churp/handler.rs b/keymanager/src/churp/handler.rs
+index d73bed4b022..a611def8831 100644
+--- a/keymanager/src/churp/handler.rs
++++ b/keymanager/src/churp/handler.rs
+@@ -1272,7 +1272,7 @@ impl Churp {
+     fn remote_enclave(ctx: &RpcContext) -> Result<&EnclaveIdentity> {
+         let si = ctx.session_info.as_ref();
+         let si = si.ok_or(Error::NotAuthenticated)?;
+-        Ok(&si.verified_quote.identity)
++        Ok(&si.verified_attestation.quote.identity)
+     }
+ 
+     /// Returns true if key manager policies should be ignored.
+diff --git a/keymanager/src/runtime/secrets.rs b/keymanager/src/runtime/secrets.rs
+index 10b2b326829..b5210c1836c 100644
+--- a/keymanager/src/runtime/secrets.rs
++++ b/keymanager/src/runtime/secrets.rs
+@@ -513,7 +513,7 @@ impl Secrets {
+     fn authenticate(ctx: &RpcContext) -> Result<&EnclaveIdentity> {
+         let si = ctx.session_info.as_ref();
+         let si = si.ok_or(KeyManagerError::NotAuthenticated)?;
+-        Ok(&si.verified_quote.identity)
++        Ok(&si.verified_attestation.quote.identity)
+     }
+ 
+     /// Fetch current epoch from the consensus layer.
+diff --git a/runtime/src/consensus/registry.rs b/runtime/src/consensus/registry.rs
+index a413efc9b99..939939a2bc8 100644
+--- a/runtime/src/consensus/registry.rs
++++ b/runtime/src/consensus/registry.rs
+@@ -161,7 +161,7 @@ impl CapabilityTEE {
+         &self,
+         policy: &sgx::QuotePolicy,
+         node_id: &signature::PublicKey,
+-    ) -> anyhow::Result<sgx::VerifiedQuote> {
++    ) -> anyhow::Result<VerifiedAttestation> {
+         match self.hardware {
+             TEEHardware::TEEHardwareInvalid => bail!("invalid TEE hardware"),
+             TEEHardware::TEEHardwareIntelSGX => {
+@@ -216,12 +216,12 @@ impl EndorsedCapabilityTEE {
+         self.verify_endorsement()?;
+ 
+         // Verify TEE capability.
+-        let verified_quote = self
++        let verified_attestation = self
+             .capability_tee
+             .verify(policy, &self.node_endorsement.public_key)?;
+ 
+         Ok(VerifiedEndorsedCapabilityTEE {
+-            verified_quote,
++            verified_attestation,
+             node_id: Some(self.node_endorsement.public_key),
+         })
+     }
+@@ -230,16 +230,25 @@ impl EndorsedCapabilityTEE {
+ /// A verified endorsed CapabilityTEE structure.
+ #[derive(Clone, Debug, Default)]
+ pub struct VerifiedEndorsedCapabilityTEE {
+-    /// Verified TEE quote.
+-    pub verified_quote: sgx::VerifiedQuote,
++    /// Verified TEE remote attestation.
++    pub verified_attestation: VerifiedAttestation,
+     /// Optional identifier of the node that endorsed the TEE capability.
+     pub node_id: Option<signature::PublicKey>,
+ }
+ 
++impl From<VerifiedAttestation> for VerifiedEndorsedCapabilityTEE {
++    fn from(verified_attestation: VerifiedAttestation) -> Self {
++        Self {
++            verified_attestation,
++            node_id: None,
++        }
++    }
++}
++
+ impl From<sgx::VerifiedQuote> for VerifiedEndorsedCapabilityTEE {
+     fn from(verified_quote: sgx::VerifiedQuote) -> Self {
+         Self {
+-            verified_quote,
++            verified_attestation: verified_quote.into(),
+             node_id: None,
+         }
+     }
+@@ -734,6 +743,24 @@ impl SGXConstraints {
+     }
+ }
+ 
++/// Verified remote attestation.
++#[derive(Clone, Debug, Default)]
++pub struct VerifiedAttestation {
++    /// Verified enclave quote.
++    pub quote: sgx::VerifiedQuote,
++    /// Enclave's view of the consensus layer height at the time of attestation.
++    pub height: Option<u64>,
++}
++
++impl From<sgx::VerifiedQuote> for VerifiedAttestation {
++    fn from(quote: sgx::VerifiedQuote) -> Self {
++        Self {
++            quote,
++            height: None,
++        }
++    }
++}
++
+ /// Intel SGX remote attestation.
+ #[derive(Clone, Debug, cbor::Encode, cbor::Decode)]
+ #[cbor(tag = "v")]
+@@ -787,7 +814,7 @@ impl SGXAttestation {
+         node_id: &signature::PublicKey,
+         rak: &signature::PublicKey,
+         rek: &x25519::PublicKey,
+-    ) -> anyhow::Result<sgx::VerifiedQuote> {
++    ) -> anyhow::Result<VerifiedAttestation> {
+         // Verify the quote.
+         let verified_quote = self.quote().verify(policy)?;
+ 
+@@ -801,11 +828,14 @@ impl SGXAttestation {
+             } => {
+                 let h = Self::hash(&verified_quote.report_data, node_id, *height, rek);
+                 signature.verify(rak, ATTESTATION_SIGNATURE_CONTEXT, &h)?;
++
++                Ok(VerifiedAttestation {
++                    quote: verified_quote,
++                    height: Some(*height),
++                })
+             }
+             _ => bail!("V0 attestation not supported"),
+         }
+-
+-        Ok(verified_quote)
+     }
+ }
+ 
+diff --git a/runtime/src/enclave_rpc/session.rs b/runtime/src/enclave_rpc/session.rs
+index 27cf5a14a33..6f406a2215c 100644
+--- a/runtime/src/enclave_rpc/session.rs
++++ b/runtime/src/enclave_rpc/session.rs
+@@ -9,10 +9,10 @@ use crate::{
+     common::{
+         crypto::signature::{self, PublicKey, Signature, Signer},
+         namespace::Namespace,
+-        sgx::{ias, EnclaveIdentity, Quote, QuotePolicy, VerifiedQuote},
++        sgx::{ias, EnclaveIdentity, Quote, QuotePolicy},
+     },
+     consensus::{
+-        registry::{EndorsedCapabilityTEE, VerifiedEndorsedCapabilityTEE},
++        registry::{EndorsedCapabilityTEE, VerifiedAttestation, VerifiedEndorsedCapabilityTEE},
+         state::registry::ImmutableState as RegistryState,
+         verifier::Verifier,
+     },
+@@ -53,8 +53,8 @@ enum SessionError {
+ pub struct SessionInfo {
+     /// RAK binding.
+     pub rak_binding: RAKBinding,
+-    /// Verified TEE quote.
+-    pub verified_quote: VerifiedQuote,
++    /// Verified TEE remote attestation.
++    pub verified_attestation: VerifiedAttestation,
+     /// Identifier of the node that endorsed the TEE.
+     pub endorsed_by: Option<PublicKey>,
+ }
+@@ -281,7 +281,7 @@ impl Session {
+ 
+         Ok(Some(Arc::new(SessionInfo {
+             rak_binding,
+-            verified_quote: vect.verified_quote,
++            verified_attestation: vect.verified_attestation,
+             endorsed_by: vect.node_id,
+         })))
+     }
+@@ -428,11 +428,11 @@ impl RAKBinding {
+ 
+         // Ensure that the report data includes the hash of the node's RAK.
+         // NOTE: For V2 this check is part of verify_inner so it is not really needed.
+-        Identity::verify_binding(&vect.verified_quote, &self.rak_pub())?;
++        Identity::verify_binding(&vect.verified_attestation.quote, &self.rak_pub())?;
+ 
+         // Verify MRENCLAVE/MRSIGNER.
+         if let Some(ref remote_enclaves) = remote_enclaves {
+-            if !remote_enclaves.contains(&vect.verified_quote.identity) {
++            if !remote_enclaves.contains(&vect.verified_attestation.quote.identity) {
+                 return Err(SessionError::MismatchedEnclaveIdentity.into());
+             }
+         }
+'''
+        fetch_changelogs([item])
+        self.assertEqual(item['changelog'],'''runtime: Add VerifiedAttestation with more metadata<br/> Since verified attestations generated from TEE capabilities can include additional metadata like the enclave's view of consensus layer height at time of attestation, this allows such data to be used by callers. ''')
+
+        item = {'number': 709}
+        item['raw_diff'] = '''
+        From b368055f1d254221d5eb5bd79148a43947fd0af8 Mon Sep 17 00:00:00 2001
+From: ptrus <peter@u-s.si>
+Date: Mon, 17 Jun 2024 15:06:51 +0200
+Subject: [PATCH] api/epochs: Skip 'end_height' for latest epoch
+
+---
+ .changelog/709.bugfix.md                        |  1 +
+ storage/client/client.go                        |  5 ++++-
+ storage/client/queries/queries.go               | 10 +++-------
+ tests/e2e_regression/damask/expected/epoch.body |  1 -
+ 4 files changed, 8 insertions(+), 9 deletions(-)
+ create mode 100644 .changelog/709.bugfix.md
+
+diff --git a/.changelog/709.bugfix.md b/.changelog/709.bugfix.md
+new file mode 100644
+index 000000000..2ba04f568
+--- /dev/null
++++ b/.changelog/709.bugfix.md
+@@ -0,0 +1 @@
++`/api/consensus/<epoch>`: Do not return end_height for currently active epoch
+diff --git a/storage/client/client.go b/storage/client/client.go
+index 5211734b4..7a8ad37e2 100644
+--- a/storage/client/client.go
++++ b/storage/client/client.go
+@@ -1004,6 +1004,7 @@ func (c *StorageClient) Epochs(ctx context.Context, p apiTypes.GetConsensusEpoch
+ 	res, err := c.withTotalCount(
+ 		ctx,
+ 		queries.Epochs,
++		nil,
+ 		p.Limit,
+ 		p.Offset,
+ 	)
+@@ -1033,8 +1034,10 @@ func (c *StorageClient) Epoch(ctx context.Context, epoch int64) (*Epoch, error)
+ 	var e Epoch
+ 	if err := c.db.QueryRow(
+ 		ctx,
+-		queries.Epoch,
++		queries.Epochs,
+ 		epoch,
++		1,
++		0,
+ 	).Scan(&e.ID, &e.StartHeight, &e.EndHeight); err != nil {
+ 		return nil, wrapError(err)
+ 	}
+diff --git a/storage/client/queries/queries.go b/storage/client/queries/queries.go
+index c25beb81c..ac145362c 100644
+--- a/storage/client/queries/queries.go
++++ b/storage/client/queries/queries.go
+@@ -252,14 +252,10 @@ const (
+ 		SELECT id, start_height,
+ 			(CASE id WHEN (SELECT max(id) FROM chain.epochs) THEN NULL ELSE end_height END) AS end_height
+ 			FROM chain.epochs
++		WHERE ($1::bigint IS NULL OR id = $1::bigint)
+ 		ORDER BY id DESC
+-		LIMIT $1::bigint
+-		OFFSET $2::bigint`
+-
+-	Epoch = `
+-		SELECT id, start_height, end_height
+-			FROM chain.epochs
+-			WHERE id = $1::bigint`
++		LIMIT $2::bigint
++		OFFSET $3::bigint`
+ 
+ 	Proposals = `
+ 		SELECT id, submitter, state, deposit, handler, cp_target_version, rhp_target_version, rcp_target_version,
+diff --git a/tests/e2e_regression/damask/expected/epoch.body b/tests/e2e_regression/damask/expected/epoch.body
+index 7f993d88b..ec13f720a 100644
+--- a/tests/e2e_regression/damask/expected/epoch.body
++++ b/tests/e2e_regression/damask/expected/epoch.body
+@@ -1,5 +1,4 @@
+ {
+-  "end_height": 8049955,
+   "id": 13403,
+   "start_height": 8049556
+ }
+'''
+
+        fetch_changelogs([item])
+        self.assertEqual(item['changelog'],
+                         '''`/api/consensus/<epoch>`: Do not return end_height for currently active epoch ''')
 
 
 if __name__ == '__main__':
