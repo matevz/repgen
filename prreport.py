@@ -105,6 +105,30 @@ def fetch_changelogs(items):
             else:
                 break
 
+def fetch_images(items):
+    """Fetches images and embeds them inside the body_html."""
+    queries = [r'\<img src="(http[^"]*)"', r'\<video src="(http[^"]*)"']
+    for pr in items:
+        if not 'body_html' in pr or pr['body_html'] is None:
+            continue
+
+        for q in queries:
+            match = re.search(q, pr['body_html'])
+            while match != None:
+                url = match.groups()[0]
+                res = ''
+                print(f'Fetching {url}', file=sys.stderr)
+                while res == '':
+                    try:
+                        res = urllib.request.urlopen(url)
+                    except HTTPError as e:
+                        print(f'HTTP error: {e.code}, retrying...', file=sys.stderr)
+                        time.sleep(HTTP_ERROR_RETRY_SLEEP)
+
+                inlineSrc = f'data:{res.headers["Content-Type"]};base64, {b64encode(res.read()).decode("utf-8")}'
+                pr['body_html'] = pr['body_html'].replace(match.groups()[0], inlineSrc)
+                match = re.search(q, pr['body_html'])
+
 def get_releases_tags(url: str, date_start: datetime.date, date_end: datetime.date) -> list:
     """Obtains any releases made this month and tags, if not covered by releases."""
     [owner, repo] = get_owner_repo(url)
@@ -149,6 +173,7 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
     if len(prs['items']) == 0:  # Skip the section, if no PRs merged this month.
         return ''
 
+    fetch_images(prs['items'])
     fetch_diffs(prs['items'])
     fetch_changelogs(prs['items'])
     prs['items'] = reorder_prs_by_diff(prs['items'])
