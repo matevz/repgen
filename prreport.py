@@ -1,3 +1,4 @@
+from base64 import b64encode
 import datetime
 import json
 import re
@@ -178,12 +179,12 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
         for r in releases:
             published = datetime.datetime.fromisoformat(r["published_at"][:-1]).date()
             out += f'<li>'
-            out += f'<a href="{r["html_url"]}">{r["tag_name"]}</a> released on {published.strftime("%b %d")}.'
+            out += f'<a href="{r["html_url"]}">{r["tag_name"]}</a> released on {published.strftime("%B %d")}.'
             if 'body_html' in r and not r['body_html'] is None:
                 out += f'<div class="pr_desc">{r["body_html"]}</div>'
             out += '</li>\n'
         out += f'</ul>\n'
 
     prs_burl = get_prs_browsable_url(url, date_start, date_end)
-    out += f'In total, <a href="{prs_burl}">{prs["total_count"]} pull requests</a> were merged in {date_start.strftime("%b")}.</p>'
+    out += f'In total, <a href="{prs_burl}">{prs["total_count"]} pull requests</a> were merged in {date_start.strftime("%B")}.</p>'
     return out
