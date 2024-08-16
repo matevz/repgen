@@ -226,10 +226,10 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
     releases = get_releases_tags(url, date_start, date_end)
     if len(releases) > 0:
         out += f'{len(releases)} new releases of {repo} were made this month:\n<ul>\n'
-        for r in releases:
+        for r in sorted(releases, key=lambda release: release["tag_name"]):
             published = datetime.datetime.fromisoformat(r["published_at"][:-1]).date()
             out += f'<li>'
-            out += f'<a href="{r["html_url"]}">{r["tag_name"]}</a> released on {published.strftime("%B %d")}.'
+            out += f'<b><a href="{r["html_url"]}">{r["tag_name"]}</a></b> released on {published.strftime("%B %-d")}.'
             if 'body_html' in r and not r['body_html'] is None:
                 out += f'<div class="pr_desc">{r["body_html"]}</div>'
             out += '</li>\n'
