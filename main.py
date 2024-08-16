@@ -31,7 +31,7 @@ def main():
     f = open("template.html", "r")
     tpl = f.read()
 
-    tpl = tpl.replace("{{MONTH}}", date_start.strftime("%b"))
+    tpl = tpl.replace("{{MONTH}}", date_start.strftime("%B"))
     tpl = tpl.replace("{{YEAR}}", str(year))
 
     pr_reports = re.findall(r'{{PR_REPORT (.*)}}', tpl)

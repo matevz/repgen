@@ -85,11 +85,11 @@ def tx_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
 
     out = '<p>'
     out += f'The number of daily transactions on <b>{paratime} {network}</b> fluctuated between {monthly_min:,} and {monthly_max:,}. '
-    out += (f'The monthly average in {date_start.strftime("%b")} was <b>{round(monthly_avg):,}</b> transactions per day and was '
+    out += (f'The monthly average in {date_start.strftime("%B")} was <b>{round(monthly_avg):,}</b> transactions per day and was '
            f'{round(abs((monthly_avg/prev_monthly_avg)*100 - 100))}% {"higher" if monthly_avg>prev_monthly_avg else "lower"} compared to '
            f'the last month ({round(prev_monthly_avg):,} transactions). ')
-    out += (f'The daily maximum was <b>{monthly_max:,}</b> transactions on {monthly_max_date.strftime("%d %b")} (compared '
-            f'to {prev_monthly_max:,} the last month on {prev_monthly_max_date.strftime("%d %b")}).')
+    out += (f'The daily maximum was <b>{monthly_max:,}</b> transactions on {monthly_max_date.strftime("%-d %B")} (compared '
+            f'to {prev_monthly_max:,} the last month on {prev_monthly_max_date.strftime("%-d %B")}).')
     out += '</p>'
 
     table_tx_stats = ''
