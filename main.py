@@ -45,7 +45,7 @@ def main():
     # Generate the actual PR report.
     pr_reports = re.findall(r'{{PR_REPORT (.*)}}', tpl)
     for prr in pr_reports:
-        tpl = tpl.replace(r'{{PR_REPORT '+prr+'}}', pr_report(prr, date_start, date_end))
+        tpl = tpl.replace(r'{{PR_REPORT '+prr+'}}', pr_report(prr, date_start, date_end)+'\n<hr/>\n')
 
     # Generate transaction statistics report.
     tx_reports = re.findall(r'{{TX_REPORT (.*)}}', tpl)
