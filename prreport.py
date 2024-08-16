@@ -8,9 +8,27 @@ import os
 import sys
 import time
 
-PER_PAGE=100 # github limit
-HTTP_ERROR_RETRY_SLEEP=10 # in seconds
-IGNORE_DIFF_FILES=['go.sum',' Cargo.lock', 'package.lock', 'yarn.lock', 'pnpm-lock.yaml', '.svg', '.tsx.snap', '.body', '.headers']
+PER_PAGE = 100  # github limit
+HTTP_ERROR_RETRY_SLEEP = 10  # in seconds
+IGNORE_DIFF_FILES = ['go.sum', ' Cargo.lock', 'package.lock', 'yarn.lock', 'pnpm-lock.yaml', '.svg', '.tsx.snap',
+                     '.body', '.headers']
+
+
+def extract_public_repo_urls(regex: str) -> list:
+    """Detects, if a single URL or regex for multiple repositories is provided. Looks up the repo(s) and returns the
+    URL(s) of public repositories that can be scraped."""
+    if '*' not in regex:
+        return [regex]
+
+    [owner, repo] = get_owner_repo(regex)
+    repo = repo.replace('*', '')  # Asterisk is not supported inside github queries.
+    repos_query_url = f'https://api.github.com/search/repositories?per_page={PER_PAGE}&q={repo}+in:name+org:{owner}'
+    repos = json.load(fetch(repos_query_url))
+    html_urls = []
+    for repo in repos['items']:
+        if not repo['private']:
+            html_urls.append(repo['html_url'])
+    return html_urls
 
 
 def get_owner_repo(url: str) -> (str, str):
@@ -24,7 +42,7 @@ def get_prs_api_url(url: str, date_start: datetime.date, date_end: datetime.date
 
 
 def get_prs_browsable_url(url: str, date_start: datetime.date, date_end: datetime.date) -> str:
-    return url+f'/pulls?q=merged:{date_start.strftime("%Y-%m-%d")}..{date_end.strftime("%Y-%m-%d")}'
+    return url + f'/pulls?q=merged:{date_start.strftime("%Y-%m-%d")}..{date_end.strftime("%Y-%m-%d")}'
 
 
 def compute_relevant_diff(diff: str) -> int:
@@ -35,7 +53,7 @@ def compute_relevant_diff(diff: str) -> int:
 
     for line in block[0].split('\n'):
         split_line = line.split('|')
-        if len(split_line)!=2 or len(split_line[1].split())!=2:
+        if len(split_line) != 2 or len(split_line[1].split()) != 2:
             continue
         if not split_line[1].split()[0].isdigit():
             continue
@@ -48,7 +66,9 @@ def compute_relevant_diff(diff: str) -> int:
         sum += int(split_line[1].split()[0])
     return sum
 
+
 def fetch(url: str) -> str:
+    """Fetch the GitHub resource requiring API_KEY."""
     print(f'Fetching {url}', file=sys.stderr)
     res = ''
     while res == '':
@@ -64,9 +84,10 @@ def fetch(url: str) -> str:
 
     return res
 
+
 def fetch_diffs(items):
     """Populates PRs with their raw diffs."""
-    for i,pr in enumerate(items):
+    for i, pr in enumerate(items):
         res = fetch(pr['pull_request']['patch_url'])
         pr['raw_diff'] = res.read().decode(res.headers.get_content_charset())
 
@@ -75,13 +96,13 @@ def reorder_prs_by_diff(items):
     """Reorders the given PRs by their relevant diff. Requires populated raw_diff."""
     diff_amt = []
 
-    for i,pr in enumerate(items):
+    for i, pr in enumerate(items):
         diff_len = compute_relevant_diff(pr['raw_diff'])
         diff_amt.append((diff_len, i))
 
     new_items = []
     diff_amt.sort(reverse=True)
-    for amt,i in diff_amt:
+    for amt, i in diff_amt:
         items[i]['diff'] = amt
         new_items.append(items[i])
 
@@ -91,9 +112,9 @@ def reorder_prs_by_diff(items):
 def fetch_changelogs(items):
     """Fetches the changelogs from PR diffs. Requires populated raw_diff."""
     for pr in items:
-        query = r'\n\+\+\+\ b\/\.changelog\/'+str(pr['number'])+r'\.[a-z]+\.md\n@@[\+\-\,\ 0-9]+@@\n(.*)'
+        query = r'\n\+\+\+\ b\/\.changelog\/' + str(pr['number']) + r'\.[a-z]+\.md\n@@[\+\-\,\ 0-9]+@@\n(.*)'
         blocks = re.findall(query, pr['raw_diff'], re.DOTALL)
-        if len(blocks)!=1 or blocks[0] == '' or blocks[0] == '\n':
+        if len(blocks) != 1 or blocks[0] == '' or blocks[0] == '\n':
             continue
 
         pr['changelog'] = ''
@@ -101,9 +122,10 @@ def fetch_changelogs(items):
         for b in blocks[0].split('\n'):
             # + should be the first character in the diff
             if len(b) > 0 and b[0] == '+':
-                pr['changelog'] += b[1:]+' '
+                pr['changelog'] += b[1:] + ' '
             else:
                 break
+
 
 def fetch_images(items):
     """Fetches images and embeds them inside the body_html."""
@@ -129,6 +151,7 @@ def fetch_images(items):
                 pr['body_html'] = pr['body_html'].replace(match.groups()[0], inlineSrc)
                 match = re.search(q, pr['body_html'])
 
+
 def get_releases_tags(url: str, date_start: datetime.date, date_end: datetime.date) -> list:
     """Obtains any releases made this month and tags, if not covered by releases."""
     [owner, repo] = get_owner_repo(url)
@@ -148,7 +171,7 @@ def get_releases_tags(url: str, date_start: datetime.date, date_end: datetime.da
     for t in tags:
         found = False
         for r in releases:
-            if t["name"]==r["tag_name"]:
+            if t["name"] == r["tag_name"]:
                 found = True
                 break
         if not found:
@@ -164,7 +187,9 @@ def get_releases_tags(url: str, date_start: datetime.date, date_end: datetime.da
             relevant_releases.append(t)
     return relevant_releases
 
+
 def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> str:
+    """Generates a PR report for a repository with a specified URL."""
     prs_url = get_prs_api_url(url, date_start, date_end)
     print(f'Fetching {prs_url}', file=sys.stderr)
     [_, repo] = get_owner_repo(url)
@@ -199,7 +224,7 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
         out += '</div>\n'
 
     releases = get_releases_tags(url, date_start, date_end)
-    if len(releases)>0:
+    if len(releases) > 0:
         out += f'{len(releases)} new releases of {repo} were made this month:\n<ul>\n'
         for r in releases:
             published = datetime.datetime.fromisoformat(r["published_at"][:-1]).date()
