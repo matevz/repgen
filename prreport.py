@@ -208,12 +208,13 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
     team = ' '.join(team)
 
     out = ''
-    out += f'<p>The <b><a href="{url}">{team}</a></b> team merged the following PRs this month:\n'
+    out += f'<h3>{team}</h3>\n'
+    out += f'<p>The <b><a href="{url}">{team}</a></b> team merged {prs["total_count"]} PRs this month:\n'
     for pr in prs['items']:
         if 'dependabot' in pr["user"]["login"] or 'renovate' in pr["user"]["login"]:
             continue
         out += '<div>\n'
-        out += f'{pr["title"]} (<a href="{pr["html_url"]}">#{pr["number"]}</a>) <b><a href="{pr["html_url"]}/files">±{pr["diff"]}</a></b> by <b>{pr["user"]["login"]}</b> @ {pr["pull_request"]["merged_at"][0:10]}.\n'
+        out += f'<input type="checkbox" /> {pr["title"]} (<a href="{pr["html_url"]}">#{pr["number"]}</a>) <b><a href="{pr["html_url"]}/files">±{pr["diff"]}</a></b> by <b>{pr["user"]["login"]}</b> @ {pr["pull_request"]["merged_at"][0:10]}.\n'
         if 'body_html' in pr and not pr['body_html'] is None:
             out += f'<div class="pr_desc">{pr["body_html"]}</div>'
         if 'changelog' in pr:
@@ -236,5 +237,5 @@ def pr_report(url: str, date_start: datetime.date, date_end: datetime.date) -> s
         out += f'</ul>\n'
 
     prs_burl = get_prs_browsable_url(url, date_start, date_end)
-    out += f'In total, <a href="{prs_burl}">{prs["total_count"]} pull requests</a> were merged in {date_start.strftime("%B")}.</p>'
+    out += f'In total, <a href="{prs_burl}">{prs["total_count"]} pull requests</a> were merged in {date_start.strftime("%B")}.</p><hr/>'
     return out

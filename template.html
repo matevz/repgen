@@ -30,6 +30,11 @@
 		width:200px;
 		margin:20px;
 	}
+
+	.toc .toc-h3 {
+		margin-left: 20px;
+	}
+
 	.tx_stats tr:nth-child(even) {
 		background: #ddd;
 	}
@@ -37,27 +42,85 @@
 		text-align: right;
 		width: 80px;
 	}
+	input[type="checkbox"]:checked ~ div {
+		background-color: #aaffaa;
+	}
 </style>
+
+<script>
+	document.addEventListener('DOMContentLoaded', function() {
+		let titles = document.querySelectorAll('h2, h3');
+		const filteredTitles = Array.from(titles).filter(title => {
+			let parent = title.parentElement;
+			while (parent) {
+				if (parent.classList.contains('pr_desc')) {
+					return false;
+				}
+				parent = parent.parentElement;
+			}
+			return true;
+		});
+		titles = filteredTitles;
+		const toc = document.querySelector('.toc details');
+		const tocLinks = [];
+
+		titles.forEach(title => {
+			// Create an id if it doesn't exist
+			if (!title.id) {
+				title.id = title.textContent.toLowerCase().replace(/\s+/g, '-');
+			}
+
+			// Create TOC link
+			const link = document.createElement('p');
+			link.classList.add(title.tagName.toLowerCase() === 'h2' ? 'toc-h2' : 'toc-h3');
+			const a = document.createElement('a');
+			a.href = '#' + title.id;
+			a.textContent = title.textContent;
+			link.appendChild(a);
+			tocLinks.push(link);
+
+			// Add to beginning of TOC (after summary)
+			const summary = toc.querySelector('summary');
+			toc.appendChild(link);
+		});
+
+		// Update active link on scroll
+		window.addEventListener('scroll', function() {
+			let currentTitle = null;
+			titles.forEach(title => {
+				if (title.getBoundingClientRect().top <= 100) {
+					currentTitle = title;
+				}
+			});
+
+			tocLinks.forEach(link => {
+				if (currentTitle && link.querySelector('a').getAttribute('href') === '#' + currentTitle.id) {
+					link.style.fontWeight = 'bold';
+				} else {
+					link.style.fontWeight = 'normal';
+				}
+			});
+		});
+	});
+</script>
 	</head>
 
 <body>
 	<div class="toc">
 		<details open>
 			<summary>TOC</summary>
-			<p><a href="#wallet-and-cli-updates">Wallet and CLI Updates</a></p>
-			<p><a href="#network-updates">Network Updates</a></p>
-			<p><a href="#oasis-nexus-and-explorer">Oasis Nexus and Explorer</a></p>
-			<p><a href="#developer-platform-and-paratime-updates">Developer Platform and ParaTime Updates</a></p>
-			<p><a href="#core-platform-updates">Core Platform Updates</a></p>
+			<!-- this will automatically be populated by javascript -->
 		</details>
 	</div>
 	<h1>Oasis {{MONTH}} {{YEAR}} Engineering update</h1>
 
 	<h2 id="wallet-and-cli-updates">Wallet and CLI Updates</h2>
 
-	{{PR_REPORT https://github.com/oasisprotocol/oasis-wallet-web}}
+	{{PR_REPORT https://github.com/oasisprotocol/wallet}}
 
 	{{PR_REPORT https://github.com/oasisprotocol/oasis-wallet-ext}}
+
+	<!-- {{PR REPORT https://github.com/oasisprotocol/sapphire-snap}} -->
 
 	{{PR_REPORT https://github.com/oasisprotocol/cli}}
 
@@ -70,7 +133,7 @@
 	{{TX_REPORT https://jekovc.si/oasis_stats/mainnet_emerald_%Y-%m.csv}}
 
 	<p>
-	{{NODE_STATS mainnet}}
+		{{NODE_STATS mainnet}}
 	</p>
 
 	<p>
@@ -86,7 +149,7 @@
 	{{TX_REPORT https://jekovc.si/oasis_stats/testnet_emerald_%Y-%m.csv}}
 
 	<p>
-	{{NODE_STATS testnet}}
+		{{NODE_STATS testnet}}
 	</p>
 
 	<p>
@@ -105,13 +168,17 @@
 
 	{{PR_REPORT https://github.com/oasisprotocol/oasis-sdk}}
 
-	{{PR_REPORT https://github.com/oasisprotocol/cipher-paratime}}
-
 	{{PR_REPORT https://github.com/oasisprotocol/sapphire-paratime}}
+
+	{{PR_REPORT https://github.com/oasisprotocol/pontusx-paratime}}
+
+	{{PR_REPORT https://github.com/oasisprotocol/cipher-paratime}}
 
 	{{PR_REPORT https://github.com/oasisprotocol/emerald-paratime}}
 
 	{{PR_REPORT https://github.com/oasisprotocol/keymanager-paratime}}
+
+	{{PR_REPORT https://github.com/oasisprotocol/pontusx-keymanager}}
 
 	{{PR_REPORT https://github.com/oasisprotocol/deoxysii}}
 
@@ -136,6 +203,5 @@
 	{{PR_REPORT https://github.com/oasisprotocol/oasis-core}}
 
 	{{PR_REPORT https://github.com/oasisprotocol/adrs}}
-
 </body>
 </html>
