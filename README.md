@@ -23,7 +23,12 @@ Features:
 - Network report:
   - Fetches daily transaction volume from CSV file.
   - Computes daily average and max/min and compares those with the previous month.
+- Discord report:
+  - Fetches all messages in the given channel ID
 
 If you encounter `403` rate limiting error on github, create Personal Access
 token and export it as the `API_KEY` env variable before executing the report
 generator.
+
+Discord bot requires `DISCORD_TOKEN` env variable to be set to your bot token.
+The bot must have "message history" permission and being invited to the server.

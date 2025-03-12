@@ -7,6 +7,7 @@ import re
 
 from prreport import pr_report, extract_public_repo_urls
 from txreport import tx_report
+from discordreport import get_chats
 
 date_start: datetime.date
 date_end: datetime.date
@@ -51,6 +52,11 @@ def main():
     tx_reports = re.findall(r'{{TX_REPORT (.*)}}', tpl)
     for txr in tx_reports:
         tpl = tpl.replace(r'{{TX_REPORT '+txr+'}}', tx_report(txr, date_start, date_end))
+
+    # Generate transaction statistics report.
+    discord_reports = re.findall(r'{{DISCORD_REPORT (.*)}}', tpl)
+    for channel_id in discord_reports:
+        tpl = tpl.replace(r'{{DISCORD_REPORT '+channel_id+'}}', get_chats(int(channel_id), date_start, date_end))
 
     print(tpl)
 
