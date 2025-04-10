@@ -55,7 +55,7 @@ def fetch_channel_messages(token, channel_id, date_start, date_end):
 def get_chats(channel_id: int, date_start: datetime.date, date_end: datetime.date) -> str:
     if 'DISCORD_TOKEN' not in os.environ:
         print("Error: DISCORD_TOKEN env variable not defined")
-        return []
+        return ""
 
     token = os.environ["DISCORD_TOKEN"]
 
