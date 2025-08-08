@@ -155,7 +155,7 @@ def fetch_images(items):
 def get_releases_tags(url: str, date_start: datetime.date, date_end: datetime.date) -> list:
     """Obtains any releases made this month and tags, if not covered by releases."""
     [owner, repo] = get_owner_repo(url)
-    releases_url = f'https://api.github.com/repos/{owner}/{repo}/releases'
+    releases_url = f'https://api.github.com/repos/{owner}/{repo}/releases?per_page={PER_PAGE}'
     releases = json.load(fetch(releases_url))
     relevant_releases = []
     for r in releases:
@@ -165,7 +165,7 @@ def get_releases_tags(url: str, date_start: datetime.date, date_end: datetime.da
         if date_start <= published <= date_end:
             relevant_releases.append(r)
 
-    tags_url = f'https://api.github.com/repos/{owner}/{repo}/tags'
+    tags_url = f'https://api.github.com/repos/{owner}/{repo}/tags?per_page={PER_PAGE}'
     tags = json.load(fetch(tags_url))
     relevant_tags = []
     for t in tags:
